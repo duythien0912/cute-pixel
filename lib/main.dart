@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'widget_helper.dart';
+import 'ai_service.dart';
 
 void main() async {
   await dotenv.load(fileName: ".env");
@@ -43,95 +42,26 @@ class _MyHomePageState extends State<MyHomePage> {
   final _controller = TextEditingController();
   bool _isLoading = false;
   final List<String> _logs = [];
+  AIModel _selectedModel = AIModel.groq;
 
   Future<void> _generatePixelArt(String prompt) async {
     setState(() => _isLoading = true);
     final startTime = DateTime.now();
 
     try {
-      final apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
-      final url = Uri.parse('https://api.groq.com/openai/v1/chat/completions');
-      final promptText =
-          '''You are a pixel-art generator.
-
-Generate a ${gridSize}x${gridSize} pixel art for the subject: "${prompt}".
-
-Output rules (STRICT):
-- Return ONLY valid JSON.
-- The JSON must be a 2D array with exactly ${gridSize} rows.
-- Each row must contain exactly ${gridSize} strings.
-- Each string must be a valid hex color in format "#RRGGBB".
-- Do NOT include comments, markdown, explanations, or extra text.
-- Do NOT wrap the output in code fences.
-
-Output example structure:
-[["#000000","#FFFFFF"],["#FF0000","#00FF00"]]
-''';
-
-      http.Response? response;
-      for (int attempt = 0; attempt < 3; attempt++) {
-        response = await http.post(
-          url,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $apiKey',
-          },
-          body: jsonEncode({
-            'model': 'openai/gpt-oss-120b',
-            'messages': [
-              {'role': 'user', 'content': promptText},
-            ],
-          }),
-        );
-
-        if (response.statusCode == 200) break;
-        if (response.statusCode == 429 && attempt < 2) {
-          await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
-        }
-      }
-
-      if (response!.statusCode != 200) {
-        final errorData = jsonDecode(response.body);
-        final errorMsg =
-            errorData['error']['message'] ?? 'API Error ${response.statusCode}';
-        throw Exception(errorMsg);
-      }
-
+      final result = await AIService.generate(_selectedModel, prompt, gridSize);
       final duration = DateTime.now().difference(startTime);
-      final responseData = jsonDecode(response.body);
-      var text =
-          responseData['choices'][0]['message']['content']?.trim() ?? '';
-      
-      text = text.replaceAll('&quot;', '"').replaceAll('&amp;', '&');
 
       setState(() {
+        pixels = result;
         _logs.insert(
           0,
           '[${DateTime.now().toString().substring(11, 19)}] '
-          'Prompt: "$prompt" | Duration: ${duration.inMilliseconds}ms | '
-          'Response: ${text.length} chars',
+          '${_selectedModel.name.toUpperCase()} | "$prompt" | ${duration.inMilliseconds}ms',
         );
       });
 
-      final jsonStart = text.indexOf('[');
-      final jsonEnd = text.lastIndexOf(']') + 1;
-      if (jsonStart != -1 && jsonEnd > jsonStart) {
-        final jsonStr = text.substring(jsonStart, jsonEnd);
-        if (!jsonStr.endsWith(']')) {
-          throw Exception('Response truncated or incomplete');
-        }
-        final List<dynamic> data = jsonDecode(jsonStr);
-
-        setState(() {
-          for (int i = 0; i < gridSize && i < data.length; i++) {
-            for (int j = 0; j < gridSize && j < data[i].length; j++) {
-              pixels[i][j] = _hexToColor(data[i][j]);
-            }
-          }
-        });
-
-        WidgetHelper.updateWidget(pixels);
-      }
+      WidgetHelper.updateWidget(pixels);
     } catch (e) {
       final errorMsg = e.toString().replaceAll('Exception: ', '');
       await Clipboard.setData(ClipboardData(text: errorMsg));
@@ -153,14 +83,6 @@ Output example structure:
     } finally {
       setState(() => _isLoading = false);
     }
-  }
-
-  Color _hexToColor(String hex) {
-    hex = hex.replaceAll('#', '');
-    if (hex.length == 6) {
-      return Color(int.parse('FF$hex', radix: 16));
-    }
-    return Colors.white;
   }
 
   @override
@@ -245,6 +167,41 @@ Output example structure:
                   ),
                   child: Column(
                     children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SegmentedButton<AIModel>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: AIModel.groq,
+                                  label: Text('Groq'),
+                                ),
+                                ButtonSegment(
+                                  value: AIModel.gemini,
+                                  label: Text('Gemini'),
+                                ),
+                              ],
+                              selected: {_selectedModel},
+                              onSelectionChanged: (Set<AIModel> selected) {
+                                setState(() => _selectedModel = selected.first);
+                              },
+                              style: ButtonStyle(
+                                backgroundColor: WidgetStateProperty.resolveWith(
+                                  (states) => states.contains(WidgetState.selected)
+                                      ? const Color(0xFF9BBC0F)
+                                      : const Color(0xFF2D2D44),
+                                ),
+                                foregroundColor: WidgetStateProperty.resolveWith(
+                                  (states) => states.contains(WidgetState.selected)
+                                      ? Colors.black
+                                      : Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: _controller,
                         onSubmitted: _isLoading
