@@ -6,7 +6,7 @@ struct PixelData: Codable {
 }
 
 struct Provider: TimelineProvider {
-    let gridSize = 32
+    let gridSize = 16
     
     func placeholder(in context: Context) -> PixelEntry {
         PixelEntry(date: Date(), pixels: Array(repeating: Array(repeating: "#FFFFFF", count: gridSize), count: gridSize))

@@ -33,7 +33,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  static const int gridSize = 32;
+  static const int gridSize = 16;
 
   List<List<Color>> pixels = List.generate(
     gridSize,
@@ -43,6 +43,15 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isLoading = false;
   final List<String> _logs = [];
   AIModel _selectedModel = AIModel.groq;
+  bool _isEmpty = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() {
+      setState(() => _isEmpty = _controller.text.trim().isEmpty);
+    });
+  }
 
   Future<void> _generatePixelArt(String prompt) async {
     setState(() => _isLoading = true);
@@ -88,7 +97,6 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       appBar: PreferredSize(
         preferredSize: Size.zero,
         child: AppBar(
@@ -204,7 +212,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       const SizedBox(height: 12),
                       TextField(
                         controller: _controller,
-                        onSubmitted: _isLoading
+                        onSubmitted: _isLoading || _isEmpty
                             ? null
                             : (v) => _generatePixelArt(v),
                         style: const TextStyle(color: Colors.white),
@@ -227,18 +235,18 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                       const SizedBox(height: 12),
                       GestureDetector(
-                        onTap: _isLoading
+                        onTap: _isLoading || _isEmpty
                             ? null
                             : () => _generatePixelArt(_controller.text),
                         child: Container(
                           height: 48,
                           decoration: BoxDecoration(
-                            color: _isLoading
+                            color: _isLoading || _isEmpty
                                 ? const Color(0xFF666666)
                                 : const Color(0xFFD84654),
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
-                              color: _isLoading
+                              color: _isLoading || _isEmpty
                                   ? const Color(0xFF444444)
                                   : const Color(0xFF8B2E39),
                               width: 3,
