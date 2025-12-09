@@ -2,8 +2,10 @@
 
 AI-powered pixel art generator built with Flutter. Transform text prompts into retro-style 16x16 pixel art using Groq or Gemini AI models.
 
-<img src="demo/widget.png" width="40%" style="vertical-align: top; padding: 4px;" />
-<img src="demo/app.png" width="40%" style="vertical-align: top; padding: 4px;" />
+<p align="center">
+  <img src="demo/widget.png" width="40%" valign="top" />
+  <img src="demo/app.png" width="40%" valign="top" />
+</p>
 
 ## Features
 
